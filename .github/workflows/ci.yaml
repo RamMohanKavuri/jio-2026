@@ -1,5 +1,5 @@
 name: CI/CD Pipeline
-  
+
 on:
   push:
     branches:
@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - develop
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
@@ -18,64 +19,65 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+
     permissions:
-      id-token: write
       contents: read
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Update browserslist database
+      - name: Update Browserslist
         run: npx update-browserslist-db@latest --yes
 
-      - name: Build application
+      - name: Build React App
         env:
           CI: false
         run: npm run build
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4  
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+        uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build Docker image
+      - name: Build Docker Image
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ env.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}-${{ github.sha }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
-          docker tag $REGISTRY/$REPOSITORY:$IMAGE_TAG $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
+          docker tag $REGISTRY/$REPOSITORY:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
 
-      - name: Push to Amazon ECR
+      - name: Push Docker Image to Amazon ECR
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ env.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}-${{ github.sha }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-          docker push $REGISTRY/$REPOSITORY:${{ env.IMAGE_TAG }}
+          docker push $REGISTRY/$REPOSITORY:latest
 
-      - name: Print image URI
-        env:   
+      - name: Display Image URI
+        env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: ${{ env.ECR_REPOSITORY }}
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}-${{ github.sha }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          echo "Image pushed to: $REGISTRY/$REPOSITORY:$IMAGE_TAG"   
-
+          echo "Docker Image:"
+          echo "$REGISTRY/$REPOSITORY:$IMAGE_TAG"
