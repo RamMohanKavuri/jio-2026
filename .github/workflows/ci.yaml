@@ -75,5 +75,5 @@ jobs:
           REPOSITORY: ${{ env.ECR_REPOSITORY }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}-${{ github.sha }}
         run: |
-          echo "Image pushed to: $REGISTRY/$REPOSITORY:$IMAGE_TAG"
+          echo "Image pushed to: $REGISTRY/$REPOSITORY:$IMAGE_TAG"   
 
