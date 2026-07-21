@@ -13,7 +13,7 @@ const fetchData=async()=>{
 console.log(allMovies);
 useEffect(()=>{
     fetchData()
-},[])
+},[fetchUrl])
 
   return (
     <div className='row'>

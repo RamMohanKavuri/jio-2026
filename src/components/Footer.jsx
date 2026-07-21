@@ -7,22 +7,22 @@ function Footer() {
         <div className='footer'>
             <div>
                 <h3>Company</h3>
-                <a href=""><h4>About us</h4></a>
-                <a href=""><h4>Careers</h4></a>
+                <a href="#about"><h4>About us</h4></a>
+                <a href="#careers"><h4>Careers</h4></a>
                 <p style={{marginTop:"20px"}}>&copy;2023 STAR . All rights reserved</p>
-                <a href=''><p>Terms of Use &nbsp; Privacy  Policy &nbsp; FAQ </p></a>
+                <a href='#terms'><p>Terms of Use &nbsp; Privacy  Policy &nbsp; FAQ </p></a>
             </div>
 
             <div>
                 <h3>View website in</h3>
-                <a href=""><h4>English</h4></a>
+                <a href="#english"><h4>English</h4></a>
                 
             </div>
 
             <div>
                 <h3>Need help ?</h3>
-                <a href=""><h4>Visit Help center</h4></a>
-                <a href=""><h4>Share feedback</h4></a>
+                <a href="#help"><h4>Visit Help center</h4></a>
+                <a href="#feedback"><h4>Share feedback</h4></a>
                
             </div>
 
