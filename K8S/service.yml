@@ -3,10 +3,10 @@ kind: Service
 metadata:
   name: hotstar-service
 spec:
+  type: NodePort
   selector:
     app: hotstar
   ports:
-    - protocol: TCP
-      port: 80  # Port exposed by the service externally (outside the cluster)
-      targetPort: 3000  # Port your application listens on inside the pods
-  type: LoadBalancer
+    - port: 80
+      targetPort: 3000
+      nodePort: 30080
