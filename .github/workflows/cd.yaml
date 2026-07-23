@@ -19,8 +19,10 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    steps:
+    permissions:
+      contents: read
 
+    steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -40,27 +42,45 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script_stop: true
 
           script: |
+            echo "===== Connected to EC2 ====="
 
             cd ~/jio-2026
 
-            git pull origin main
+            echo "===== Updating Repository ====="
+            git fetch origin
+            git reset --hard origin/main
 
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
-            docker login --username AWS --password-stdin \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+            echo "===== Logging into Amazon ECR ====="
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
+            echo "===== Applying Kubernetes Manifests ====="
             kubectl apply -f K8S/deployment.yml
             kubectl apply -f K8S/service.yml
 
-            kubectl set image deployment/hotstar-deployment \
-            hotstar=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+            echo "===== Updating Deployment Image ====="
+            kubectl set image deployment/hotstar-deployment hotstar=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
 
+            echo "===== Restarting Deployment ====="
+            kubectl rollout restart deployment/hotstar-deployment
+
+            echo "===== Waiting for Rollout ====="
             kubectl rollout status deployment/hotstar-deployment --timeout=300s
 
+            echo "===== Deployment Status ====="
             kubectl get deployments
 
-            kubectl get pods
+            echo "===== Pods ====="
+            kubectl get pods -o wide
 
+            echo "===== Services ====="
             kubectl get svc
+
+            echo "===== Current Image ====="
+            kubectl get deployment hotstar-deployment -o=jsonpath='{.spec.template.spec.containers[0].image}'
+            echo
+
+            echo "===== Deployment Completed Successfully ====="
