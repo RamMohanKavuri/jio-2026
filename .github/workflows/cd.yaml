@@ -2,7 +2,8 @@ name: CD Pipeline
 
 on:
   workflow_run:
-    workflows: ["CI/CD Pipeline"]
+    workflows:
+      - "CI/CD Pipeline"
     types:
       - completed
 
@@ -15,12 +16,11 @@ env:
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
@@ -29,48 +29,38 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set Image URI
-        run: |
-          echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest" >> $GITHUB_ENV
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+      - name: Deploy to EC2 Minikube
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          version: latest
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Configure Kubernetes
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+          script: |
 
-      - name: Verify Cluster Connection
-        run: |
-          kubectl cluster-info
-          kubectl get nodes
+            cd ~/jio-2026
 
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f K8S/deployment.yml
-          kubectl apply -f K8S/service.yml
+            git pull origin main
 
-      - name: Update Deployment Image
-        run: |
-          kubectl set image deployment/hotstar-deployment \
-          hotstar=$IMAGE_URI
+            aws ecr get-login-password --region ${{ env.AWS_REGION }} | \
+            docker login --username AWS --password-stdin \
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
-      - name: Wait for Rollout
-        run: |
-          kubectl rollout status deployment/hotstar-deployment --timeout=300s
+            kubectl apply -f K8S/deployment.yml
+            kubectl apply -f K8S/service.yml
 
-      - name: Verify Deployment
-        run: |
-          kubectl get deployments
-          kubectl get pods
-          kubectl get services
+            kubectl set image deployment/hotstar-deployment \
+            hotstar=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+
+            kubectl rollout status deployment/hotstar-deployment --timeout=300s
+
+            kubectl get deployments
+
+            kubectl get pods
+
+            kubectl get svc
