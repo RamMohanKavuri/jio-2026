@@ -1,19 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: hotstar-deployment
+
 spec:
-  replicas: 1  # Number of desired replicas
+  replicas: 1
+
   selector:
     matchLabels:
       app: hotstar
+
   template:
     metadata:
       labels:
         app: hotstar
+
     spec:
+      imagePullSecrets:
+        - name: ecr-secret
+
       containers:
-      - name: hotstar
-        image: sevenajay/hotstar:latest
-        ports:
-        - containerPort: 3000  # Port your application listens on
+        - name: hotstar
+          image: 422261031406.dkr.ecr.us-east-1.amazonaws.com/hostar:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 3000
