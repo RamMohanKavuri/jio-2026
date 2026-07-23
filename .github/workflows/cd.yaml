@@ -48,6 +48,10 @@ jobs:
           script: |
             echo "===== Connected to EC2 ====="
 
+            export AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}'
+            export AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
+            export AWS_DEFAULT_REGION='${{ env.AWS_REGION }}'
+
             cd ~/jio-2026
 
             echo "===== Updating Repository ====="
@@ -55,14 +59,23 @@ jobs:
             git reset --hard origin/main
 
             echo "===== Logging into Amazon ECR ====="
-            aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
+            aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+
+            echo "===== Refreshing ECR Pull Secret ====="
+            kubectl delete secret ecr-secret --ignore-not-found
+
+            kubectl create secret docker-registry ecr-secret \
+              --docker-server=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com \
+              --docker-username=AWS \
+              --docker-password="$(aws ecr get-login-password --region $AWS_DEFAULT_REGION)"
 
             echo "===== Applying Kubernetes Manifests ====="
             kubectl apply -f K8S/deployment.yml
             kubectl apply -f K8S/service.yml
 
             echo "===== Updating Deployment Image ====="
-            kubectl set image deployment/hotstar-deployment hotstar=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
+            kubectl set image deployment/hotstar-deployment \
+              hotstar=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
 
             echo "===== Restarting Deployment ====="
             kubectl rollout restart deployment/hotstar-deployment
